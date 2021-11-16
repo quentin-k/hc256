@@ -4,15 +4,19 @@ use zeroize::Zeroize;
 
 type TABLE = [u32; 1024];
 
+#[derive(Zeroize)]
+#[zeroize(drop)]
 pub struct Hc256 {
     p: TABLE,
     q: TABLE,
     i: usize,
+    r: [u8; 3],
+    c: usize,
 }
 
 impl Hc256 {
     pub fn new(k: &[u8; 32], iv: &[u8; 32]) -> Self {
-        let mut cipher = Hc256 { p: [0;1024], q: [0;1024], i: 0};
+        let mut cipher = Hc256 { p: [0; 1024], q: [0; 1024], i: 0, r: [0; 3], c: 0 };
         let mut w: [u32; 2560] = [0; 2560];
 
         for i in 0..8 {
@@ -50,13 +54,36 @@ impl Hc256 {
     }
 
     pub fn apply_stream(&mut self, dest: &mut [u8]) {
+
         let mut dlen = dest.len();
+
+        let mut pad_i = 0;
+        if self.c >= dlen {
+            for i in (3 - self.c)..(3 - self.c + dlen) {
+                dest[pad_i] ^= self.r[i];
+                self.r[i] = 0;
+                pad_i += 1;
+            }
+            self.c -= dlen;
+            return;
+        } else {
+            for i in (3 - self.c)..3 {
+                dest[pad_i] ^= self.r[i];
+                self.r[i] = 0;
+                pad_i += 1;
+            }
+
+            self.c = 0;
+        }
+
+        dlen -= pad_i;
+
         let mut ifull = dlen / 4;
         let mut pad = dlen % 4;
-        for i in 0..ifull {
+        for i in 0..ifull{
             let mut word: [u8; 4] = self.gen_word().to_le_bytes();
 
-            let o = i * 4;
+            let o = (i * 4) + pad_i;
 
             dest[o] ^= word[0];
             dest[o + 1] ^= word[1];
@@ -67,14 +94,32 @@ impl Hc256 {
         }
         if pad != 0 {
             let mut word: [u8; 4] = self.gen_word().to_le_bytes();
-
-            let o = ifull * 4;
-
-            for i in 0..pad {
-                dest[o + i] ^= word[i]
+            let o = (ifull * 4) + pad_i;
+            match pad {
+                3 => {
+                    dest[o] ^= word[0];
+                    dest[o + 1] ^= word[1];
+                    dest[o + 2] ^= word[2];
+                    self.r = [0,0,word[3]];
+                    self.c = 1;
+                }
+                2 => {
+                    dest[o] ^= word[0];
+                    dest[o + 1] ^= word[1];
+                    self.r = [0, word[2], word[3]];
+                    self.c = 2;
+                }
+                1 => {
+                    dest[o] ^= word[0];
+                    self.r = [word[1], word[2], word[3]];
+                    self.c = 3;
+                }
+                _ => panic!("Pad check failed!")
             }
 
             word.zeroize();
+        } else {
+            self.r.zeroize()
         }
 
         dlen.zeroize();
@@ -82,6 +127,7 @@ impl Hc256 {
         pad.zeroize();
     }
 
+    #[inline]
     fn gen_word(&mut self) -> u32 {
         let i = self.i;
         let (j, j3, j10, j12, j1023) = self.offsets();
@@ -143,20 +189,6 @@ impl Hc256 {
             self.i.wrapping_sub(12) & 1023,
             self.i.wrapping_add(1) & 1023
         )
-    }
-}
-
-impl Zeroize for Hc256 {
-    fn zeroize(&mut self) {
-        self.q.zeroize();
-        self.p.zeroize();
-        self.i.zeroize();
-    }
-}
-
-impl Drop for Hc256 {
-    fn drop(&mut self) {
-        self.zeroize()
     }
 }
 

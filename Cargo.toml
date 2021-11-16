@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zeroize = "1.4"
+zeroize = {version =  "1.4", features = ["zeroize_derive"] }
 generic-array = "0.14"
