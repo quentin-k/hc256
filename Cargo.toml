@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 zeroize = {version =  "1.4", features = ["zeroize_derive"] }
-generic-array = "0.14"
+
+[dev-dependencies]
+rand = "0.8"
