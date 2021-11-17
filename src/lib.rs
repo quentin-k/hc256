@@ -4,6 +4,43 @@ use zeroize::Zeroize;
 
 type TABLE = [u32; 1024];
 
+macro_rules! set_cipher_tables {
+    ($var:ident, $key:ident, $iv:ident) => {
+        let mut w: [u32; 2560] = [0; 2560];
+
+        for i in 0..8 {
+            w[i] = ($key[4 * i] as u32)
+                | (($key[(4 * i) + 1] as u32) << 8)
+                | (($key[(4 * i) + 2] as u32) << 16)
+                | (($key[(4 * i) + 3] as u32) << 24);
+
+            w[i + 8] = ($iv[4 * i] as u32)
+                | (($iv[(4 * i) + 1] as u32) << 8)
+                | (($iv[(4 * i) + 2] as u32) << 16)
+                | (($iv[(4 * i) + 3] as u32) << 24);
+        }
+
+        for i in 16..2560 {
+            w[i] = f2(w[i - 2])
+                .wrapping_add(w[i - 7])
+                .wrapping_add(f1(w[i - 15]))
+                .wrapping_add(w[i - 16])
+                .wrapping_add(i as u32);
+        }
+
+        $var.p[..1024].clone_from_slice(&w[512..(1024 + 512)]);
+        $var.q[..1024].clone_from_slice(&w[1536..(1024 + 1536)]);
+
+        w.zeroize();
+
+        for _ in 0..4096 {
+            $var.gen_word();
+        }
+
+        $var.i.zeroize();
+    };
+}
+
 #[derive(Zeroize)]
 #[zeroize(drop)]
 pub struct Hc256 {
@@ -17,40 +54,68 @@ pub struct Hc256 {
 impl Hc256 {
     pub fn new(k: &[u8; 32], iv: &[u8; 32]) -> Self {
         let mut cipher = Hc256 { p: [0; 1024], q: [0; 1024], i: 0, r: [0; 3], c: 0 };
-        let mut w: [u32; 2560] = [0; 2560];
-
-        for i in 0..8 {
-            w[i] = (k[4 * i] as u32)
-                | ((k[(4 * i) + 1] as u32) << 8)
-                | ((k[(4 * i) + 2] as u32) << 16)
-                | ((k[(4 * i) + 3] as u32) << 24);
-
-            w[i + 8] = (iv[4 * i] as u32)
-                | ((iv[(4 * i) + 1] as u32) << 8)
-                | ((iv[(4 * i) + 2] as u32) << 16)
-                | ((iv[(4 * i) + 3] as u32) << 24);
-        }
-
-        for i in 16..2560 {
-            w[i] = f2(w[i - 2])
-                .wrapping_add(w[i - 7])
-                .wrapping_add(f1(w[i - 15]))
-                .wrapping_add(w[i - 16])
-                .wrapping_add(i as u32);
-        }
-
-        cipher.p[..1024].clone_from_slice(&w[512..(1024 + 512)]);
-        cipher.q[..1024].clone_from_slice(&w[1536..(1024 + 1536)]);
-
-        w.zeroize();
-
-        for _ in 0..4096 {
-            cipher.gen_word();
-        }
-
-        cipher.i.zeroize();
+        set_cipher_tables!(cipher, k, iv);
+        // let mut w: [u32; 2560] = [0; 2560];
+        //
+        // for i in 0..8 {
+        //     w[i] = (k[4 * i] as u32)
+        //         | ((k[(4 * i) + 1] as u32) << 8)
+        //         | ((k[(4 * i) + 2] as u32) << 16)
+        //         | ((k[(4 * i) + 3] as u32) << 24);
+        //
+        //     w[i + 8] = (iv[4 * i] as u32)
+        //         | ((iv[(4 * i) + 1] as u32) << 8)
+        //         | ((iv[(4 * i) + 2] as u32) << 16)
+        //         | ((iv[(4 * i) + 3] as u32) << 24);
+        // }
+        //
+        // for i in 16..2560 {
+        //     w[i] = f2(w[i - 2])
+        //         .wrapping_add(w[i - 7])
+        //         .wrapping_add(f1(w[i - 15]))
+        //         .wrapping_add(w[i - 16])
+        //         .wrapping_add(i as u32);
+        // }
+        //
+        // cipher.p[..1024].clone_from_slice(&w[512..(1024 + 512)]);
+        // cipher.q[..1024].clone_from_slice(&w[1536..(1024 + 1536)]);
+        //
+        // w.zeroize();
+        //
+        // for _ in 0..4096 {
+        //     cipher.gen_word();
+        // }
+        //
+        // cipher.i.zeroize();
 
         cipher
+    }
+    
+    pub fn set_state(&mut self, k: &[u8;32], iv: &[u8;32], offset: usize) {
+        set_cipher_tables!(self, k, iv);
+        for _ in 0..(offset/4) {
+            self.gen_word();
+        }
+        let rem = offset % 4;
+        if rem > 0 {
+            let word = self.gen_word().to_le_bytes();
+
+            match rem {
+                3 => {
+                    self.r = [0,0,word[3]];
+                    self.c = 1;
+                }
+                2 => {
+                    self.r = [0, word[2], word[3]];
+                    self.c = 2;
+                }
+                1 => {
+                    self.r = [word[1], word[2], word[3]];
+                    self.c = 3;
+                }
+                _ => panic!("Rem check failed!")
+            }
+        }
     }
 
     pub fn apply_stream(&mut self, dest: &mut [u8]) {
