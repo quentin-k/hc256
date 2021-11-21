@@ -69,7 +69,8 @@ fn initialize_time() {
         , lowest_from_avg
     );
 
-    let mut file = File::create("init-time-info-2048").unwrap();
+    std::fs::create_dir_all("timing").unwrap();
+    let mut file = File::create("timing/init-time-info-2048").unwrap();
     file.write_all(&info_string.as_bytes()).unwrap();
 }
 
@@ -130,7 +131,8 @@ fn apply_stream_time() {
         , lowest_from_avg
     );
 
-    let mut file = File::create("apply-stream-time-info-4_3GB").unwrap();
+    std::fs::create_dir_all("timing").unwrap();
+    let mut file = File::create("timing/apply-stream-time-info-4_3GB").unwrap();
     file.write_all(&info_string.as_bytes()).unwrap();
     let nspb = avg_stream / 16384f64;
     assert!( nspb <= 12.0)
@@ -156,6 +158,7 @@ fn clock_stream_time() {
         , cpb
     );
 
-    let mut file = File::create("clock-stream-time").unwrap();
+    std::fs::create_dir_all("timing").unwrap();
+    let mut file = File::create("timing/clock-stream-time").unwrap();
     file.write_all(&info_string.as_bytes()).unwrap();
 }
