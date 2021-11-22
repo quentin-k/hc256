@@ -8,4 +8,6 @@ Library to perform encryption using the hc256 stream cipher, and utility to encr
 
 ## License
 
-hc256-util: GPL-v3 hc256: Apache 2.0
+hc256-util: GPL-v3
+
+hc256: Apache 2.0
