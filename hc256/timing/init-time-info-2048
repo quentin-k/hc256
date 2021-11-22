@@ -1,0 +1,14 @@
+-------------------------------------
+Data
+-------------------------------------
+Total time:           8196134151
+Total inits:          8191070797
+Wasted loop time:     5063354
+Average init time:    3999546.2875976563
+Average cycle time:   4002018.6284179688
+Fastest init time:    1938208
+Slowest init time:    59005348
+Max diff:             57067140
+Slowest from average: 55005801.712402344
+Fastest from average: 2061338.2875976563
+-------------------------------------

@@ -1,0 +1,14 @@
+-------------------------------------
+Data
+-------------------------------------
+Total time:           1091982389439
+Total stream:         1091710374882
+Wasted loop time:     272014557
+Average stream time:  4164544.581916809
+Average cycle time:   4165582.235103607
+Fastest stream time:  2825687
+Slowest stream time:  247449885
+Max diff:             244624198
+Slowest from average: 243285340.4180832
+Fastest from average: 1338857.581916809
+-------------------------------------
