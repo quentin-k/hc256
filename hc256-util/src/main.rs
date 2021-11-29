@@ -8,7 +8,7 @@ use hc256::Hc256;
 
 fn main() {
     let matches = App::new("Hc256 Encryption Utility")
-        .version("0.2.1")
+        .version("0.3.0")
         .author("Quentin K")
         .about("Encrypts a file using the hc-256 stream cipher")
         .arg(
@@ -52,6 +52,11 @@ fn main() {
                 .takes_value(true)
                 .required(true),
         )
+        .arg(Arg::with_name("output file")
+            .short("o")
+            .long("output")
+            .value_name("OUTPUT FILE")
+            .help("Specify an output file to use instead of inplace encryption"))
         .get_matches();
 
     let key: [u8; 32] = {
@@ -103,7 +108,10 @@ fn main() {
     let mut cipher = Hc256::new(&key, &iv);
     cipher.apply_stream(&mut content);
 
-    File::create(filename)
+    File::create(match matches.value_of("output file") {
+        Some(p) => p,
+        None => filename,
+    })
         .unwrap()
         .write_all(&content)
         .expect("Failed to write content to file");
